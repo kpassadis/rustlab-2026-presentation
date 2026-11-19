@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Building a Declarative Computation Engine in Rust — RustLab 2026</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            navy: {
+              950: '#070B14',
+              900: '#0B1120',
+              800: '#131C31',
+              700: '#1E293B',
+            },
+            rust: {
+              500: '#F97316',
+              600: '#EA580C',
+              700: '#C2410C',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Custom subtle grid background & transitions */
+    .bg-grid-pattern {
+      background-image: radial-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .code-scroll::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    .code-scroll::-webkit-scrollbar-track {
+      background: #0B1120;
+    }
+    .code-scroll::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-orange-500/20 selection:text-orange-700">
+
+  <!-- Sticky Navigation Bar -->
+  <header class="sticky top-0 z-50 bg-navy-900/95 backdrop-blur-md border-b border-slate-800 text-slate-100">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-2.5 font-bold tracking-tight text-white">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 text-white font-mono text-sm shadow-sm">
+          br
+        </span>
+        <span class="text-base sm:text-lg">brick-rs <span class="text-slate-400 font-normal hidden sm:inline">| RustLab 2026</span></span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+        <a href="#philosophy" class="hover:text-orange-400 transition-colors">Philosophy & DSL</a>
+        <a href="#pipeline" class="hover:text-orange-400 transition-colors">Compiler & Arena</a>
+        <a href="#use-cases" class="hover:text-orange-400 transition-colors">Use Cases</a>
+        <a href="#roadmap" class="hover:text-orange-400 transition-colors">Roadmap</a>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <a href="./Building_a_Declarative_Computation_Engine_in_Rust.pdf" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs sm:text-sm font-semibold transition-all shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>Slides PDF</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section id="top" class="relative overflow-hidden bg-navy-900 bg-grid-pattern text-white border-b border-slate-800">
+    <div class="absolute inset-0 bg-gradient-to-b from-orange-500/10 via-transparent to-navy-900 pointer-events-none"></div>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 relative z-10">
+      <!-- Conference Badge -->
+      <div class="inline-flex flex-wrap items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 text-xs sm:text-sm font-mono font-semibold tracking-wide mb-6">
+        <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+        <span>RUSTLAB 2026 &bull; BOLOGNA &bull; NOV 03, 12:15</span>
+      </div>
+
+      <!-- Title -->
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white max-w-4xl leading-tight mb-6">
+        Building a Declarative Computation Engine in <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300">Rust</span>
+      </h1>
+
+      <p class="text-base sm:text-xl text-slate-300 max-w-3xl leading-relaxed mb-8">
+        Bridging domain mathematics and production infrastructure by compiling Bayesian-inspired DAG specifications into zero-allocation numerical arenas, concurrent HTTP pipelines, and 50 Hz real-time grid telemetry.
+      </p>
+
+      <!-- Speaker Card -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-4 p-4 sm:p-5 rounded-2xl bg-navy-800/80 border border-slate-700/80 max-w-3xl mb-10">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
+          KP
+        </div>
+        <div>
+          <div class="text-white font-bold text-base sm:text-lg">Kostas Passadis</div>
+          <div class="text-slate-300 text-xs sm:text-sm leading-snug">
+            Section Head at National Control Center (NCC), Dept. of IT &amp; AI &mdash; Independent Power Transmission Operator (IPTO)
+          </div>
+          <div class="text-sky-400 text-xs font-medium mt-0.5">
+            Electrical &amp; Computer Engineer &bull; PhD in Electromagnetics
+          </div>
+        </div>
+      </div>
+
+      <!-- Primary Action Buttons -->
+      <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+        <a href="./Building_a_Declarative_Computation_Engine_in_Rust.pdf" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold text-sm sm:text-base transition-all shadow-lg shadow-orange-950/50">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>Download / View Slides (PDF)</span>
+        </a>
+
+        <a href="https://github.com/kpassadis/brick-rs" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-semibold text-sm sm:text-base transition-all">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          <span>Engine Repo (brick-rs)</span>
+        </a>
+
+        <a href="https://github.com/kpassadis/rustlab-2026-presentation" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-navy-800/80 hover:bg-slate-800 text-slate-200 border border-slate-700 font-medium text-sm sm:text-base transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          <span>Presentation Repo</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 1: Foundational Philosophy & Two-Language Separation -->
+  <section id="philosophy" class="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="mb-12">
+      <div class="text-xs font-mono font-bold uppercase tracking-wider text-orange-600 mb-2">01 &bull; Foundational Philosophy</div>
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+        Declarative + Engine = Computation
+      </h2>
+      <p class="text-slate-600 text-base sm:text-lg max-w-3xl">
+        A model is not a computer program—it is a pure declarative representation capturing how variables interact. Separating <em>policy</em> (what to compute) from <em>mechanism</em> (how to run it) eliminates 6-month enterprise release sprints.
+      </p>
+    </div>
+
+    <!-- Interactive Equation Banner -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-14">
+      <div class="p-5 rounded-2xl bg-navy-900 text-white border-2 border-orange-500/80 shadow-md">
+        <div class="text-xs font-mono text-orange-400 uppercase mb-1">Declarative Core</div>
+        <div class="text-lg font-extrabold mb-2">THE MODEL</div>
+        <p class="text-xs text-slate-300 leading-relaxed mb-3">Standalone description of reality. Pure topology, zero control flow, solver agnostic.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="px-2 py-0.5 rounded bg-navy-800 text-[11px] font-mono text-orange-300 border border-slate-700">definition.dsl</span>
+        </div>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-white border-2 border-sky-600 shadow-sm">
+        <div class="text-xs font-mono text-sky-600 uppercase mb-1">Rust Infrastructure</div>
+        <div class="text-lg font-extrabold text-slate-900 mb-2">THE ENGINE</div>
+        <p class="text-xs text-slate-600 leading-relaxed mb-3">Static DAG topological verification, shape inference, and contiguous memory arena allocation.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="px-2 py-0.5 rounded bg-sky-50 text-[11px] font-mono text-sky-700 border border-sky-200">petgraph + faer</span>
+        </div>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-white border-2 border-emerald-600 shadow-sm">
+        <div class="text-xs font-mono text-emerald-600 uppercase mb-1">Execution Driver</div>
+        <div class="text-lg font-extrabold text-slate-900 mb-2">ALGORITHM</div>
+        <p class="text-xs text-slate-600 leading-relaxed mb-3">Pluggable execution strategies operating over immutable graphs and mutable contexts.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="px-2 py-0.5 rounded bg-emerald-50 text-[11px] font-mono text-emerald-700 border border-emerald-200">Forward / SPSA</span>
+        </div>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-purple-50/70 border-2 border-purple-600 shadow-sm">
+        <div class="text-xs font-mono text-purple-700 uppercase mb-1">Execution Result</div>
+        <div class="text-lg font-extrabold text-purple-950 mb-2">COMPUTATION</div>
+        <p class="text-xs text-slate-700 leading-relaxed mb-3">Zero-heap-churn evaluation yielding requested sink outputs from streaming or batch inputs.</p>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="px-2 py-0.5 rounded bg-purple-100 text-[11px] font-mono text-purple-800 border border-purple-200">runtime.dsl</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive DSL Evolution & Port Order Inspector -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <!-- Left 7 Cols: DSL Evolution Tabs -->
+      <div class="lg:col-span-7 bg-navy-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-navy-950 border-b border-slate-800">
+          <div class="flex items-center gap-1.5" role="tablist">
+            <button onclick="switchDslTab('blueprint')" id="tab-blueprint"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-orange-600 text-white transition-colors">
+              definition.dsl (Bayesian DAG)
+            </button>
+            <button onclick="switchDslTab('runtime')" id="tab-runtime"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-400 hover:text-white transition-colors">
+              runtime.dsl (Query)
+            </button>
+            <button onclick="switchDslTab('json')" id="tab-json"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-400 hover:text-white transition-colors">
+              v1 JSON (Anti-Pattern)
+            </button>
+          </div>
+          <button onclick="copyActiveDsl()" id="copy-dsl-btn"
+                  class="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono transition-colors">
+            Copy
+          </button>
+        </div>
+
+        <!-- Tab Content: definition.dsl -->
+        <div id="panel-blueprint" class="p-5">
+          <div class="flex items-center justify-between text-xs text-emerald-400 font-mono mb-3">
+            <span>✓ Compiled Once &bull; Pure Topology &bull; Zero Runtime Data</span>
+            <span>Pearl's P(Child | Parents)</span>
+          </div>
+          <pre id="code-blueprint" class="code-scroll overflow-x-auto text-xs sm:text-sm font-mono text-slate-200 leading-relaxed"><code>DAG[label = wind_power_estimator]
+
+# 1. NODE DECLARATIONS (Types & Static Shapes)
+Variable[label = P_0, rows = 1, columns = 1]
+Variable[label = w_M, rows = 1, columns = 4]
+Variable[label = M_0, rows = 1, columns = 1]
+Placeholder[label = v, rows = 1, columns = 1]
+Placeholder[label = theta_basis, rows = 4, columns = 1]
+MatMul[label = delta_M]
+Add[label = M_theta]
+
+# 2. TOPOLOGY (Child | Parent0, Parent1 Notation)
+[ P_0; w_M; M_0; v; theta_basis;
+  delta_M | w_M, theta_basis;   # Port 0: w_M, Port 1: theta_basis
+  M_theta | M_0, delta_M ]      # Port 0: M_0, Port 1: delta_M</code></pre>
+        </div>
+
+        <!-- Tab Content: runtime.dsl -->
+        <div id="panel-runtime" class="p-5 hidden">
+          <div class="flex items-center justify-between text-xs text-sky-400 font-mono mb-3">
+            <span>✓ Queried Many &bull; Binds Data &amp; Algorithm</span>
+            <span>One Model, Many Runs</span>
+          </div>
+          <pre id="code-runtime" class="code-scroll overflow-x-auto text-xs sm:text-sm font-mono text-slate-200 leading-relaxed"><code>EXECUTE wind_power_trainer
+USING SPSA
+WITH SPSA[
+  iterations = 1000,
+  a = 0.5, c = 0.1, A = 10,
+  alpha = 0.602, gamma = 0.101
+]
+GIVEN SOURCE ./data/train
+YIELD loss</code></pre>
+        </div>
+
+        <!-- Tab Content: JSON Anti-Pattern -->
+        <div id="panel-json" class="p-5 hidden">
+          <div class="flex items-center justify-between text-xs text-rose-400 font-mono mb-3">
+            <span>✕ Fatal Trap: Mixes Definition Blueprint with Runtime Numbers</span>
+            <span>Verbose &amp; Unscannable</span>
+          </div>
+          <pre id="code-json" class="code-scroll overflow-x-auto text-xs sm:text-sm font-mono text-slate-300 leading-relaxed"><code>{
+  "name": "wind_estimator",
+  "nodes": [
+    { "label": "v", "op": "Placeholder", "shape": [1, 1] },
+    {
+      "label": "M_0", "op": "Variable", "shape": [1, 1],
+      "initial_value": [[8.2]]  // &lt;-- Runtime data leaked into blueprint!
+    },
+    { "label": "delta_M", "op": "MatMul" },
+    { "label": "M_theta", "op": "Add" }
+  ],
+  "edges": [
+    { "from": "w_M", "to": "delta_M" },
+    { "from": "M_0", "to": "M_theta" }
+  ]
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Right 5 Cols: Interactive Port-Order Inspector -->
+      <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-50 text-orange-700 font-mono text-xs font-semibold mb-3">
+          Interactive Port Semantics
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">
+          Non-Commutative Input Ports
+        </h3>
+        <p class="text-sm text-slate-600 mb-4 leading-relaxed">
+          In <code class="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">petgraph</code>, dependency edges store positional weights (<code class="font-mono text-xs">usize</code>) preserving exact operand order without runtime lookup overhead. Toggle operands below to inspect <code class="font-mono text-xs text-orange-600 font-semibold">Subtract</code>:
+        </p>
+
+        <div class="p-3.5 rounded-xl bg-navy-900 text-white font-mono text-sm flex items-center justify-between mb-4">
+          <span id="port-dsl-expr" class="text-orange-300">[difference | a, b]</span>
+          <button onclick="swapPorts()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-sans font-semibold text-white border border-slate-600 transition-colors">
+            ⇄ Swap Parents
+          </button>
+        </div>
+
+        <div class="space-y-2.5 text-xs">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="font-mono font-bold text-slate-900" id="port0-edge">a &rarr; difference</span>
+              <div class="text-slate-500 mt-0.5">Left operand (minuend = <span id="port0-val" class="font-mono font-semibold text-slate-800">10.0</span>)</div>
+            </div>
+            <span class="px-2.5 py-1 rounded-md bg-orange-100 text-orange-800 font-mono font-bold">Port 0</span>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="font-mono font-bold text-slate-900" id="port1-edge">b &rarr; difference</span>
+              <div class="text-slate-500 mt-0.5">Right operand (subtrahend = <span id="port1-val" class="font-mono font-semibold text-slate-800">3.5</span>)</div>
+            </div>
+            <span class="px-2.5 py-1 rounded-md bg-sky-100 text-sky-800 font-mono font-bold">Port 1</span>
+          </div>
+
+          <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between font-mono">
+            <span class="text-emerald-900 font-semibold">Evaluated Result:</span>
+            <span id="port-eval-result" class="text-emerald-700 font-bold text-sm">10.0 - 3.5 = 6.5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: 4-Stage Compilation Pipeline, Arena Visualizer & Pruning -->
+  <section id="pipeline" class="py-16 sm:py-24 bg-slate-100/80 border-y border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="mb-12">
+        <div class="text-xs font-mono font-bold uppercase tracking-wider text-sky-600 mb-2">02 &bull; Compiler &amp; Memory Architecture</div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+          4-Stage Lifecycle &amp; Zero-Allocation Arena
+        </h2>
+        <p class="text-slate-600 text-base sm:text-lg max-w-3xl">
+          From raw <code class="font-mono text-sm bg-white px-1.5 py-0.5 rounded border border-slate-200">nom</code> parser combinators to a single contiguous <code class="font-mono text-sm bg-white px-1.5 py-0.5 rounded border border-slate-200">Vec&lt;f64&gt;</code> slab sliced via <code class="font-mono text-sm bg-white px-1.5 py-0.5 rounded border border-slate-200">faer::MatRef / MatMut</code> with zero heap churn on the hot loop.
+        </p>
+      </div>
+
+      <!-- 4-Stage Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-md bg-orange-100 text-orange-800 font-mono text-xs font-bold">01 &bull; INGEST</span>
+            <span class="font-mono text-xs text-slate-400">nom</span>
+          </div>
+          <h3 class="font-bold text-slate-900 mb-1.5">Parse &amp; Build AST</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Zero-copy parser combinators transform <code class="font-mono">definition.dsl</code> into <code class="font-mono">GraphAst</code> and <code class="font-mono">GraphDefinition</code>.
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-md bg-sky-100 text-sky-800 font-mono text-xs font-bold">02 &bull; VERIFY</span>
+            <span class="font-mono text-xs text-slate-400">petgraph</span>
+          </div>
+          <h3 class="font-bold text-slate-900 mb-1.5">Static Invariants</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            DFS cycle detection, single-component connectivity check, port arity contracts, and state-transition shape matching.
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-800 font-mono text-xs font-bold">03 &bull; LOWER</span>
+            <span class="font-mono text-xs text-slate-400">BufferLayout</span>
+          </div>
+          <h3 class="font-bold text-slate-900 mb-1.5">Shape &amp; Arena Layout</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Propagates dimensions forward and allocates static offsets inside one contiguous <code class="font-mono">Vec&lt;f64&gt;</code> arena.
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 font-mono text-xs font-bold">04 &bull; RUN</span>
+            <span class="font-mono text-xs text-slate-400">Algorithm</span>
+          </div>
+          <h3 class="font-bold text-slate-900 mb-1.5">Zero-Copy Kernels</h3>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Disjoint unsafe raw-slice projection into <code class="font-mono">faer</code> matrix views (<code class="font-mono">C = A &times; B</code>) with zero runtime allocations.
+          </p>
+        </div>
+      </div>
+
+      <!-- Interactive Arena Memory Visualizer + Execution Order Pruning -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Left 7 Cols: Column-Major Vec<f64> Arena Visualizer -->
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <span class="px-2.5 py-1 rounded-md bg-sky-50 text-sky-700 font-mono text-xs font-semibold">
+              Interactive Column-Major Arena
+            </span>
+            <span class="font-mono text-xs text-slate-500">BufferLayout &#123; offset: 6, rows: 3, columns: 3 &#125;</span>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2">
+            Contiguous <code class="font-mono text-base text-sky-700">Vec&lt;f64&gt;</code> Slicing (<code class="font-mono text-sm">&amp;arena[6..15]</code>)
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-600 mb-5">
+            Click or hover any cell in the 3&times;3 matrix or flat arena slot to inspect how <code class="font-mono text-xs">faer::MatRef::from_column_major_slice</code> maps 1D memory offsets to 2D coordinates without copying.
+          </p>
+
+          <!-- Flat Arena Bar (Indices 6..14) -->
+          <div class="mb-6">
+            <div class="text-xs font-mono text-slate-500 mb-2">Contiguous Heap Slab: <span class="text-slate-800 font-semibold">arena[6..15]</span> (9 consecutive f64 values)</div>
+            <div id="arena-strip" class="grid grid-cols-9 gap-1.5">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- 2D Column-Major Matrix View + Inspector -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <div class="text-xs font-mono text-slate-500 mb-2 text-center">3&times;3 Matrix A (Column-Major)</div>
+              <div id="matrix-grid" class="grid grid-cols-3 gap-2 max-w-[210px] mx-auto">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <div class="bg-navy-900 text-slate-200 p-4 rounded-xl font-mono text-xs space-y-2">
+              <div class="text-orange-400 font-semibold">// Zero-Copy Coordinate Mapping</div>
+              <div>Matrix Element: <span id="insp-mat-coord" class="text-white font-bold">A[0, 0]</span></div>
+              <div>Value (f64): <span id="insp-val" class="text-emerald-400 font-bold">1.0</span></div>
+              <div>Formula: <span class="text-slate-400">offset + col * rows + row</span></div>
+              <div>Arena Index: <span id="insp-idx" class="text-sky-400 font-bold">6 + 0*3 + 0 = 6</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right 5 Cols: Output-Driven Execution Order Pruning -->
+        <div class="lg:col-span-5 bg-navy-900 text-white rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-mono text-xs font-semibold mb-3">
+              Output Determines Execution
+            </div>
+            <h3 class="text-lg font-bold mb-2">Pruned Execution Order</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mb-4 leading-relaxed">
+              The compiled graph stays fixed. Selecting a different <code class="font-mono text-orange-300">YIELD</code> target automatically prunes unneeded branches before execution:
+            </p>
+
+            <!-- Toggle Buttons -->
+            <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-navy-950 border border-slate-800 mb-5">
+              <button onclick="setPruneTarget('loss')" id="btn-prune-loss"
+                      class="py-2 px-3 rounded-lg font-mono text-xs font-semibold bg-orange-600 text-white transition-all">
+                YIELD loss
+              </button>
+              <button onclick="setPruneTarget('power')" id="btn-prune-power"
+                      class="py-2 px-3 rounded-lg font-mono text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                YIELD estimated_power
+              </button>
+            </div>
+
+            <!-- Visual Subgraph Status -->
+            <div id="prune-details" class="space-y-2.5 text-xs font-mono">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="mt-5 pt-4 border-t border-slate-800 font-mono text-[11px] text-sky-300">
+            let pruned = graph.pruned_execution_order(output_node_id.index());
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 3: Production Use Cases Explorer -->
+  <section id="use-cases" class="py-16 sm:py-24 max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="mb-10">
+      <div class="text-xs font-mono font-bold uppercase tracking-wider text-orange-600 mb-2">03 &bull; Multi-Stakeholder Ecosystem</div>
+      <h2 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+        One Engine Across Heterogeneous Domains
+      </h2>
+      <p class="text-slate-600 text-base sm:text-lg max-w-3xl">
+        Explore how the exact same <code class="font-mono text-sm bg-slate-100 px-1.5 py-0.5 rounded">brick-rs</code> runtime executes vectorized async REST ingestion, aerodynamic wind power curves, and 50 Hz synchrophasor DSP.
+      </p>
+    </div>
+
+    <!-- Use Case Selector Tabs -->
+    <div class="flex flex-wrap gap-2 sm:gap-3 mb-8" role="tablist">
+      <button onclick="selectUseCase('http')" id="uc-tab-http"
+              class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-navy-900 text-white shadow-sm transition-all">
+        1. Parallel HTTP Fetch (Open-Meteo)
+      </button>
+      <button onclick="selectUseCase('wind')" id="uc-tab-wind"
+              class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-white text-slate-700 border border-slate-200 hover:border-slate-300 transition-all">
+        2. Wind Power Curtailment &amp; SPSA
+      </button>
+      <button onclick="selectUseCase('pmu')" id="uc-tab-pmu"
+              class="px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-white text-slate-700 border border-slate-200 hover:border-slate-300 transition-all">
+        3. 50 Hz PMU Telemetry &amp; Kalman DSP
+      </button>
+    </div>
+
+    <!-- Use Case Content Container -->
+    <div id="use-case-content" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <!-- Populated dynamically by JS -->
+    </div>
+  </section>
+
+  <!-- Section 4: Session Roadmap & Future Milestones -->
+  <section id="roadmap" class="py-16 sm:py-24 bg-navy-900 text-white border-t border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="mb-12">
+        <div class="text-xs font-mono font-bold uppercase tracking-wider text-orange-400 mb-2">04 &bull; The Road Ahead</div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-4">
+          Engine Evolution &amp; Future Milestones
+        </h2>
+        <p class="text-slate-300 text-base sm:text-lg max-w-3xl">
+          Because the DAG intermediate representation decouples model structure from execution strategy, new probabilistic solvers, SIMD fusions, and web protocols plug directly into the existing compiler frontend.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Pillar 1 -->
+        <div class="p-6 rounded-2xl bg-navy-800/90 border border-slate-700/80">
+          <div class="text-xs font-mono font-bold text-orange-400 uppercase mb-2">Pillar 01 &bull; Algorithms</div>
+          <h3 class="text-xl font-bold mb-3">Probabilistic &amp; Deterministic</h3>
+          <ul class="space-y-2.5 text-sm text-slate-300">
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>Exact Inference via Variable Elimination &amp; Factor Products</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>MCMC Sampling (Gibbs &amp; Likelihood Weighting)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>Automated Causal Structure Learning &amp; d-Separation</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="p-6 rounded-2xl bg-navy-800/90 border border-slate-700/80">
+          <div class="text-xs font-mono font-bold text-sky-400 uppercase mb-2">Pillar 02 &bull; Compiler Passes</div>
+          <h3 class="text-xl font-bold mb-3">Graph Execution Optimizations</h3>
+          <ul class="space-y-2.5 text-sm text-slate-300">
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>Independent Subgraph Detection for Concurrent Scheduling</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>Parallel Subgraph Forking (Tokio / Rayon)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>Kernel Fusion (fusing Add + MatMul into SIMD passes)</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="p-6 rounded-2xl bg-navy-800/90 border border-slate-700/80">
+          <div class="text-xs font-mono font-bold text-purple-400 uppercase mb-2">Pillar 03 &bull; Deployment</div>
+          <h3 class="text-xl font-bold mb-3">Engine-as-a-Service (Axum)</h3>
+          <ul class="space-y-2.5 text-sm text-slate-300">
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>Low-Latency Axum HTTP REST &amp; gRPC Endpoints</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>WebSocket &amp; SSE Streams for 50 Hz Live Feeds</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-400 font-bold">&check;</span>
+              <span>Zero-Copy Shared <code class="font-mono text-xs text-sky-300">Arc&lt;CompiledGraph&gt;</code> Registry</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-navy-950 text-slate-400 py-12 border-t border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div>
+        <div class="text-white font-bold text-base mb-1">Kostas Passadis</div>
+        <p class="text-xs sm:text-sm text-slate-400 max-w-xl">
+          Section Head at NCC, Dept. of IT &amp; AI &mdash; Independent Power Transmission Operator (IPTO). Electrical &amp; Computer Engineer, PhD in Electromagnetics.
+        </p>
+        <p class="text-xs text-slate-500 mt-2 font-mono">
+          Presented at RustLab 2026 &bull; Bologna, Italy &bull; November 3, 2026
+        </p>
+      </div>
+
+      <div class="flex flex-wrap gap-4 text-xs sm:text-sm font-medium">
+        <a href="./Building_a_Declarative_Computation_Engine_in_Rust.pdf" target="_blank" rel="noopener" class="text-orange-400 hover:text-orange-300 transition-colors">
+          Slides PDF
+        </a>
+        <span class="text-slate-700">&bull;</span>
+        <a href="https://github.com/kpassadis/brick-rs" target="_blank" rel="noopener" class="text-slate-300 hover:text-white transition-colors">
+          kpassadis/brick-rs
+        </a>
+        <span class="text-slate-700">&bull;</span>
+        <a href="https://github.com/kpassadis/rustlab-2026-presentation" target="_blank" rel="noopener" class="text-slate-300 hover:text-white transition-colors">
+          Presentation Repo
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Interactive Logic -->
+  <script>
+    // 1. DSL Evolution Tabs
+    let activeDslTab = 'blueprint';
+    function switchDslTab(tab) {
+      activeDslTab = tab;
+      ['blueprint', 'runtime', 'json'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const panel = document.getElementById(`panel-${t}`);
+        if (t === tab) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-orange-600 text-white transition-colors';
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-400 hover:text-white transition-colors';
+          panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function copyActiveDsl() {
+      const codeEl = document.getElementById(`code-${activeDslTab}`);
+      const text = codeEl.innerText;
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      const btn = document.getElementById('copy-dsl-btn');
+      const original = btn.innerText;
+      btn.innerText = 'Copied!';
+      btn.classList.add('text-emerald-400');
+      setTimeout(() => {
+        btn.innerText = original;
+        btn.classList.remove('text-emerald-400');
+      }, 1500);
+    }
+
+    // 2. Non-Commutative Port Inspector
+    let portsSwapped = false;
+    function swapPorts() {
+      portsSwapped = !portsSwapped;
+      const expr = document.getElementById('port-dsl-expr');
+      const p0Edge = document.getElementById('port0-edge');
+      const p0Val = document.getElementById('port0-val');
+      const p1Edge = document.getElementById('port1-edge');
+      const p1Val = document.getElementById('port1-val');
+      const evalRes = document.getElementById('port-eval-result');
+
+      if (!portsSwapped) {
+        expr.innerText = '[difference | a, b]';
+        p0Edge.innerText = 'a \u2192 difference';
+        p0Val.innerText = '10.0';
+        p1Edge.innerText = 'b \u2192 difference';
+        p1Val.innerText = '3.5';
+        evalRes.innerText = '10.0 - 3.5 = 6.5';
+      } else {
+        expr.innerText = '[difference | b, a]';
+        p0Edge.innerText = 'b \u2192 difference';
+        p0Val.innerText = '3.5';
+        p1Edge.innerText = 'a \u2192 difference';
+        p1Val.innerText = '10.0';
+        evalRes.innerText = '3.5 - 10.0 = -6.5';
+      }
+    }
+
+    // 3. Column-Major Arena Visualizer (BufferLayout { offset: 6, rows: 3, columns: 3 })
+    const arenaValues = [1.0, 4.0, 7.0, 2.0, 5.0, 8.0, 3.0, 6.0, 9.0];
+    const baseOffset = 6;
+    const rows = 3;
+    const cols = 3;
+    let selectedLocalIdx = 0;
+
+    function renderArena() {
+      const strip = document.getElementById('arena-strip');
+      const grid = document.getElementById('matrix-grid');
+      strip.innerHTML = '';
+      grid.innerHTML = '';
+
+      // Render 1D flat arena strip (indices 6..14)
+      for (let i = 0; i < 9; i++) {
+        const globalIdx = baseOffset + i;
+        const isSelected = i === selectedLocalIdx;
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.onclick = () => selectArenaCell(i);
+        cell.className = `p-1.5 rounded-lg border text-center font-mono transition-all ${
+          isSelected
+            ? 'bg-orange-600 text-white border-orange-600 shadow-sm scale-105'
+            : 'bg-slate-50 hover:bg-sky-50 text-slate-800 border-slate-200'
+        }`;
+        cell.innerHTML = `
+          <div class="text-[10px] ${isSelected ? 'text-orange-200' : 'text-slate-400'}">[${globalIdx}]</div>
+          <div class="text-xs font-bold">${arenaValues[i].toFixed(1)}</div>
+        `;
+        strip.appendChild(cell);
+      }
+
+      // Render 2D 3x3 Matrix in row-major visual order, mapping each (r, c) -> c * rows + r
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const localIdx = c * rows + r;
+          const isSelected = localIdx === selectedLocalIdx;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.onclick = () => selectArenaCell(localIdx);
+          btn.className = `py-2.5 px-2 rounded-xl border font-mono text-sm font-bold transition-all ${
+            isSelected
+              ? 'bg-orange-600 text-white border-orange-600 shadow-md'
+              : 'bg-white hover:bg-sky-50 text-slate-800 border-slate-200'
+          }`;
+          btn.innerHTML = `
+            <div>${arenaValues[localIdx].toFixed(1)}</div>
+            <div class="text-[10px] font-normal ${isSelected ? 'text-orange-200' : 'text-slate-400'}">(${r},${c})</div>
+          `;
+          grid.appendChild(btn);
+        }
+      }
+
+      // Update Inspector Text
+      const selCol = Math.floor(selectedLocalIdx / rows);
+      const selRow = selectedLocalIdx % rows;
+      const globalIdx = baseOffset + selectedLocalIdx;
+      document.getElementById('insp-mat-coord').innerText = `A[${selRow}, ${selCol}]`;
+      document.getElementById('insp-val').innerText = arenaValues[selectedLocalIdx].toFixed(1);
+      document.getElementById('insp-idx').innerText = `${baseOffset} + ${selCol}*${rows} + ${selRow} = ${globalIdx}`;
+    }
+
+    function selectArenaCell(localIdx) {
+      selectedLocalIdx = localIdx;
+      renderArena();
+    }
+
+    // 4. Output-Driven Execution Order Pruning
+    function setPruneTarget(target) {
+      const btnLoss = document.getElementById('btn-prune-loss');
+      const btnPower = document.getElementById('btn-prune-power');
+      const details = document.getElementById('prune-details');
+
+      if (target === 'loss') {
+        btnLoss.className = 'py-2 px-3 rounded-lg font-mono text-xs font-semibold bg-orange-600 text-white transition-all';
+        btnPower.className = 'py-2 px-3 rounded-lg font-mono text-xs font-semibold text-slate-400 hover:text-white transition-all';
+        details.innerHTML = `
+          <div class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/60 text-emerald-300">
+            <span class="font-bold">[ACTIVE]</span> Aerodynamic Curve: M_theta, P_max_theta, estimated_power
+          </div>
+          <div class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/60 text-emerald-300">
+            <span class="font-bold">[ACTIVE]</span> MSE Loss Branch: y_actual &rarr; error &rarr; sq_error &rarr; loss
+          </div>
+          <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-400 line-through">
+            <span>[PRUNED]</span> 95% Confidence Band: sigma_scaled, lower_bound, upper_bound
+          </div>
+        `;
+      } else {
+        btnPower.className = 'py-2 px-3 rounded-lg font-mono text-xs font-semibold bg-sky-600 text-white transition-all';
+        btnLoss.className = 'py-2 px-3 rounded-lg font-mono text-xs font-semibold text-slate-400 hover:text-white transition-all';
+        details.innerHTML = `
+          <div class="p-3 rounded-xl bg-emerald-950/60 border border-emerald-700/60 text-emerald-300">
+            <span class="font-bold">[ACTIVE]</span> Aerodynamic Curve: M_theta, P_max_theta, estimated_power
+          </div>
+          <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-400 line-through">
+            <span>[PRUNED]</span> MSE Loss Branch: y_actual not required at inference time!
+          </div>
+          <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-400 line-through">
+            <span>[PRUNED]</span> 95% Confidence Band: excluded from execution schedule
+          </div>
+        `;
+      }
+    }
+
+    // 5. Production Use Cases Explorer
+    const useCasesData = {
+      http: {
+        badge: 'Use Case 01 \u2022 Async Network Orchestration',
+        title: 'Parallel HTTP Fetch with Vectorized Batch Semantics',
+        summary: 'Network calls are expressed as standard topological nodes without altering compiler invariants. ParallelFetch detects array inputs (N=2 coordinates), forks lightweight ExecutionContexts per branch, and spawns concurrent Tokio tasks over a single shared Arc<CompiledGraph>.',
+        highlights: [
+          'Zero Graph Duplication: Arc<CompiledGraph> cloned in O(1) across workers.',
+          'Context Isolation: Each task mutates its own forked ExecutionContext with zero lock contention.',
+          'Broadcast Scalars: hourly_value broadcasts automatically across all N batch instances.'
+        ],
+        dslTitle: 'openmeteo_batch.dsl',
+        code: `# Definition Blueprint
+DAG[label = openmeteo]
+RequestUrl[label = openmeteo]
+RequestParam[label = longitude, name = longitude]
+RequestParam[label = latitude, name = latitude]
+RequestParam[label = hourly, name = hourly]
+Text[label = longitude_value]
+Text[label = latitude_value]
+Text[label = hourly_value]
+Text[label = url]
+Get[label = get]
+
+[ longitude | longitude_value;
+  latitude  | latitude_value;
+  hourly    | hourly_value;
+  openmeteo | url;
+  get       | openmeteo, longitude, latitude, hourly ]
+
+# Runtime Query (N = 2 Parallel Batch)
+EXECUTE openmeteo USING ParallelFetch
+GIVEN JSON {
+  "url": "https://api.open-meteo.com/v1/forecast",
+  "longitude_value": [52.52, 52.33],
+  "latitude_value":  [13.41, 42.00],
+  "hourly_value":    "temperature_2m"
+}
+YIELD get`
+      },
+      wind: {
+        badge: 'Use Case 02 \u2022 Grid Dispatch & Curtailment Reconstruction',
+        title: 'Fourier-Logistic Aerodynamic Wind Power Curve',
+        summary: 'During grid over-generation, NCC curtails wind parks, masking true aerodynamic capability. Using historical SCADA wind speed (v) and direction (\u03b8), a single DAG blueprint handles parameter initialization (Init), SPSA gradient-free optimization, and real-time inference (Forward).',
+        highlights: [
+          'Fourier Harmonics: Models directional wake deficits & terrain sheltering without angle discontinuities.',
+          'In-Place SPSA Training: Perturbs and updates Variable slices directly in the float arena.',
+          'Single Blueprint Lifecycle: Reused across Init \u2192 Train (SPSA) \u2192 Predict (Forward).'
+        ],
+        dslTitle: 'wind_lifecycle.dsl',
+        code: `# Parametric Curve: P_hat(v, theta) = P_max(theta) / (1 + exp(-B * (v - M(theta))))
+
+# Phase 01: Initialize parameter priors into arena
+EXECUTE wind_power_estimator USING Init
+GIVEN JSON { "P_0": [[1.0]], "M_0": [[8.2]], "B": [[0.85]] }
+YIELD ()
+
+# Phase 02: Optimize Fourier weights via SPSA
+EXECUTE wind_power_estimator USING SPSA
+WITH SPSA[iterations = 1000, a = 0.5, c = 0.1, A = 10, alpha = 0.602, gamma = 0.101]
+GIVEN SOURCE ./data/train
+YIELD loss
+
+# Phase 03: Predict unconstrained power (prunes loss & prediction bands)
+EXECUTE wind_power_estimator USING Forward
+GIVEN JSON { "v": [[11.4]], "theta_basis": [[0.86], [0.50], [0.50], [0.86]] }
+YIELD estimated_power`
+      },
+      pmu: {
+        badge: 'Use Case 03 \u2022 50 Hz Synchrophasor Streaming (20 ms Budget)',
+        title: 'Hybrid Kalman + Wavelet + SID Disturbance Detection',
+        summary: 'Processes IEEE C37.118 PMU frames arriving every 20 ms from the IPTO transmission grid. Combines kinematic Kalman filtering, Daubechies-4 (db4) wavelet energy, and 4th-order Subspace Identification (SID) with dual-sided CUSUM alarms inside a unified graph.',
+        highlights: [
+          'Intra-Sample DAG Purity: Within tick k, state inputs (x, P) act as root placeholders—zero cycles.',
+          'Inter-Sample State Handoff: Deferred state transitions copy x_new \u2192 x between 20 ms ticks.',
+          'End-to-End Streaming: Kafka raw synchrophasors \u2192 brick-rs \u2192 Redis live operator cache & ClickHouse.'
+        ],
+        dslTitle: 'kalman_dwt_cusum.dsl',
+        code: `# Unified Hybrid Topology:
+# 1. Kalman Filter + CUSUM (Frequency & RoCoF innovation residuals)
+# 2. Daubechies-4 Wavelet Energy (16-sample sliding window transients)
+# 3. 4th-Order State-Space Identification (MISO V-I drift detection)
+
+# Inter-Sample State Transitions (Preserves Acyclic Toposort within Tick k)
+[ x           | x_new;
+  P           | P_new;
+  S_plus      | S_plus_new;
+  S_minus     | S_minus_new;
+  x_sid       | x_sid_new;
+  S_sid_plus  | S_sid_plus_new;
+  S_sid_minus | S_sid_minus_new ]`
+      }
+    };
+
+    function selectUseCase(key) {
+      ['http', 'wind', 'pmu'].forEach(k => {
+        const tab = document.getElementById(`uc-tab-${k}`);
+        if (k === key) {
+          tab.className = 'px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-navy-900 text-white shadow-sm transition-all';
+        } else {
+          tab.className = 'px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm bg-white text-slate-700 border border-slate-200 hover:border-slate-300 transition-all';
+        }
+      });
+
+      const data = useCasesData[key];
+      const container = document.getElementById('use-case-content');
+      container.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-12">
+          <div class="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-200">
+            <div>
+              <div class="text-xs font-mono font-bold text-orange-600 uppercase mb-2">${data.badge}</div>
+              <h3 class="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3">${data.title}</h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-6">${data.summary}</p>
+            </div>
+            <div class="space-y-2.5">
+              <div class="text-xs font-mono font-bold uppercase text-slate-400">Architecture Highlights</div>
+              ${data.highlights.map(h => `
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed">
+                  ${h}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="lg:col-span-7 bg-navy-900 p-6 sm:p-8 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="font-mono text-xs text-sky-400">${data.dslTitle}</span>
+                <span class="font-mono text-[11px] text-slate-400">brick-rs DSL</span>
+              </div>
+              <pre class="code-scroll overflow-x-auto text-xs sm:text-[13px] font-mono text-slate-200 leading-relaxed"><code>${data.code}</code></pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Initialize interactive components on load
+    window.addEventListener('DOMContentLoaded', () => {
+      renderArena();
+      setPruneTarget('loss');
+      selectUseCase('http');
+    });
+  </script>
+</body>
+</html>
