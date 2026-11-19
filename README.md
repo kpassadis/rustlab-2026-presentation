@@ -4,7 +4,6 @@ Presentation at **RustLab 2026** conference, Bologna (November 3, 2026).
 
 * **Interactive Micro-site:** https://kpassadis.github.io/rustlab-2026-presentation/
 * **Slides (PDF):** [Building_a_Declarative_Computation_Engine_in_Rust.pdf](./Building_a_Declarative_Computation_Engine_in_Rust.pdf)
-* **Engine Repository:** https://github.com/kpassadis/brick-rs
 
 ## Abstract
 
